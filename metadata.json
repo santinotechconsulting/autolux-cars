@@ -1,0 +1,6 @@
+{
+  "name": "AutoLux USA — Cars for Sale, Rentals & Certified Dealers",
+  "description": "Search new and used cars for sale, luxury rentals, free vehicle history reports, and instant financing pre-qualification with AutoLux USA.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

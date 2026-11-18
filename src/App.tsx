@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import { CompareTray } from './components/CompareTray';
+import { FloatingActions } from './components/FloatingActions';
 import { Footer } from './components/Footer';
 import { Navbar } from './components/Navbar';
 import { ToastContainer } from './components/ToastContainer';
@@ -46,6 +47,7 @@ export default function App() {
             </Routes>
           </main>
           <CompareTray />
+          <FloatingActions />
           <Footer />
         </div>
       </BrowserRouter>

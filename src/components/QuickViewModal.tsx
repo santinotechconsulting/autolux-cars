@@ -9,6 +9,7 @@ import {
   Truck,
   X,
 } from 'lucide-react';
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useMarketplace } from '../context/MarketplaceContext';
 import { getDealRating } from '../data/inventory';
@@ -28,14 +29,26 @@ export function QuickViewModal({ vehicle, onClose, onRequestQuote }: QuickViewMo
   const monthlyEstimate = vehicle.monthlyPaymentEstimate ?? Math.round((vehicle.price * 0.9) / 60);
   const { rating, savings } = getDealRating(vehicle);
 
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-xs"
       role="dialog"
       aria-modal="true"
       aria-label={`Quick view ${vehicle.year} ${vehicle.make} ${vehicle.model}`}
+      onClick={onClose}
     >
-      <div className="relative w-full max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+      <div
+        className="relative w-full max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           type="button"
           onClick={onClose}

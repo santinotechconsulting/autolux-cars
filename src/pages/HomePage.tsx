@@ -16,6 +16,7 @@ import {
 import { motion } from 'motion/react';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { prefetchRoute } from '../App';
 import { VehicleCard } from '../components/VehicleCard';
 import { useMarketplace } from '../context/MarketplaceContext';
 import {
@@ -403,8 +404,11 @@ export function HomePage() {
                 <img
                   src={AUTOLUX_LOGO}
                   alt="AutoLux USA — Drive Your Dream: Cars for Sale, Car Rental, Trusted Dealer, Premium Quality"
+                  width={1280}
+                  height={720}
                   className="h-full w-full object-cover"
                   fetchPriority="high"
+                  decoding="sync"
                   referrerPolicy="no-referrer"
                 />
               </div>
@@ -446,6 +450,7 @@ export function HomePage() {
 
           <Link
             to="/financing"
+            onMouseEnter={() => prefetchRoute('/financing')}
             className="inline-flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-red-600 whitespace-nowrap shrink-0"
           >
             <DollarSign className="h-3.5 w-3.5" aria-hidden="true" />
@@ -558,8 +563,11 @@ export function HomePage() {
                 <img
                   src={prog.image}
                   alt={prog.title}
+                  width={96}
+                  height={80}
                   className="h-20 w-24 shrink-0 rounded-lg object-cover"
                   loading="lazy"
+                  decoding="async"
                   referrerPolicy="no-referrer"
                 />
                 <div className="min-w-0">

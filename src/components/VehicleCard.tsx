@@ -1,11 +1,16 @@
 import { ArrowRight, Camera, Car, Eye, Heart, MessageSquare, Scale, ShieldCheck } from 'lucide-react';
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMarketplace } from '../context/MarketplaceContext';
 import { getDealRating } from '../data/inventory';
 import type { Vehicle } from '../types/marketplace';
-import { AvailabilityModal } from './AvailabilityModal';
-import { QuickViewModal } from './QuickViewModal';
+
+const AvailabilityModal = lazy(() =>
+  import('./AvailabilityModal').then((m) => ({ default: m.AvailabilityModal })),
+);
+const QuickViewModal = lazy(() =>
+  import('./QuickViewModal').then((m) => ({ default: m.QuickViewModal })),
+);
 
 interface VehicleCardProps {
   vehicle: Vehicle;
@@ -45,6 +50,8 @@ export function VehicleCard({ vehicle, layout = 'grid', onCheckAvailability }: V
               <img
                 src={vehicle.image}
                 alt={`${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.trim} for sale in ${vehicle.dealerCity}, ${vehicle.dealerState}`}
+                width={400}
+                height={300}
                 className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
                 loading="lazy"
                 decoding="async"
@@ -186,14 +193,18 @@ export function VehicleCard({ vehicle, layout = 'grid', onCheckAvailability }: V
         </article>
 
         {quickViewOpen && (
-          <QuickViewModal
-            vehicle={vehicle}
-            onClose={() => setQuickViewOpen(false)}
-            onRequestQuote={triggerQuote}
-          />
+          <Suspense fallback={null}>
+            <QuickViewModal
+              vehicle={vehicle}
+              onClose={() => setQuickViewOpen(false)}
+              onRequestQuote={triggerQuote}
+            />
+          </Suspense>
         )}
         {localQuoteOpen && (
-          <AvailabilityModal vehicle={vehicle} onClose={() => setLocalQuoteOpen(false)} />
+          <Suspense fallback={null}>
+            <AvailabilityModal vehicle={vehicle} onClose={() => setLocalQuoteOpen(false)} />
+          </Suspense>
         )}
       </>
     );
@@ -208,6 +219,8 @@ export function VehicleCard({ vehicle, layout = 'grid', onCheckAvailability }: V
               <img
                 src={vehicle.image}
                 alt={`${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.trim} for sale in ${vehicle.dealerCity}, ${vehicle.dealerState}`}
+                width={400}
+                height={300}
                 className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
                 loading="lazy"
                 decoding="async"
@@ -347,14 +360,18 @@ export function VehicleCard({ vehicle, layout = 'grid', onCheckAvailability }: V
       </article>
 
       {quickViewOpen && (
-        <QuickViewModal
-          vehicle={vehicle}
-          onClose={() => setQuickViewOpen(false)}
-          onRequestQuote={triggerQuote}
-        />
+        <Suspense fallback={null}>
+          <QuickViewModal
+            vehicle={vehicle}
+            onClose={() => setQuickViewOpen(false)}
+            onRequestQuote={triggerQuote}
+          />
+        </Suspense>
       )}
       {localQuoteOpen && (
-        <AvailabilityModal vehicle={vehicle} onClose={() => setLocalQuoteOpen(false)} />
+        <Suspense fallback={null}>
+          <AvailabilityModal vehicle={vehicle} onClose={() => setLocalQuoteOpen(false)} />
+        </Suspense>
       )}
     </>
   );

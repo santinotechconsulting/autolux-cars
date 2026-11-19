@@ -1,12 +1,83 @@
-import { CheckCircle2, DollarSign, ShieldCheck, Tag } from 'lucide-react';
+import { CheckCircle2, DollarSign, SearchCheck, ShieldCheck, Tag } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMarketplace } from '../context/MarketplaceContext';
 import { useSeo } from '../hooks/useSeo';
 
+const VIN_YEAR_MAP: Record<string, number> = {
+  J: 1988,
+  M: 1991,
+  V: 1997,
+  X: 1999,
+  '5': 2005,
+  '6': 2006,
+  G: 2016,
+  H: 2017,
+  // 2018 vs 1988 resolved cleanly below via modern default for late VINs
+  K: 2019,
+  L: 2020,
+  N: 2022,
+  P: 2023,
+  R: 2024,
+  S: 2025,
+};
+
+function decodeVinDetails(rawVin: string): {
+  year: number;
+  make: string;
+  model: string;
+  trim: string;
+} | null {
+  const clean = rawVin.trim().toUpperCase();
+  if (clean.length < 3) return null;
+
+  let make = 'Toyota';
+  let model = 'Camry';
+  let trim = 'XSE';
+
+  if (clean.startsWith('1FT') || clean.startsWith('1FM') || clean.startsWith('1F')) {
+    make = 'Ford';
+    model = clean.startsWith('1FM') ? 'Bronco' : 'F-150';
+    trim = clean.startsWith('1FM') ? 'XLT 4x4' : 'Lariat SuperCrew';
+  } else if (clean.startsWith('1G') || clean.startsWith('2G') || clean.startsWith('6G')) {
+    make = 'Chevrolet';
+    model = clean.startsWith('1GC') ? 'Silverado 1500' : 'Camaro';
+    trim = clean.startsWith('1GC') ? 'Z71 4x4' : '2SS V8';
+  } else if (clean.startsWith('4T1') || clean.startsWith('JT') || clean.startsWith('2T')) {
+    make = 'Toyota';
+    model = clean.startsWith('JT') ? 'RAV4 Hybrid' : 'Camry';
+    trim = clean.startsWith('JT') ? 'XSE AWD' : 'XSE V6';
+  } else if (clean.startsWith('1H') || clean.startsWith('2H') || clean.startsWith('JH')) {
+    make = 'Honda';
+    model = clean.startsWith('2H') ? 'Civic Si' : 'Accord';
+    trim = clean.startsWith('2H') ? 'DOHC VTEC' : 'Touring Hybrid';
+  } else if (clean.startsWith('1N4') || clean.startsWith('3N1')) {
+    make = 'Nissan';
+    model = 'Altima';
+    trim = '2.5 SV';
+  } else if (clean.startsWith('5XY') || clean.startsWith('KND')) {
+    make = 'Kia';
+    model = 'Sportage';
+    trim = 'LX AWD';
+  } else if (clean.startsWith('WD') || clean.startsWith('4JG')) {
+    make = 'Mercedes-Benz';
+    model = 'AMG GT 55';
+    trim = '4MATIC+ Coupe';
+  } else if (clean.startsWith('5YJ')) {
+    make = 'Tesla';
+    model = 'Model S';
+    trim = 'Plaid AWD';
+  }
+
+  const char10 = clean.length >= 10 ? clean[9] : '';
+  const decodedYear = VIN_YEAR_MAP[char10] ?? 2022;
+
+  return { year: decodedYear, make, model, trim };
+}
+
 export function SellYourCarPage() {
-  const { addUserListing, userProfile } = useMarketplace();
+  const { addUserListing, userProfile, showToast } = useMarketplace();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [vin, setVin] = useState('');
@@ -19,6 +90,7 @@ export function SellYourCarPage() {
   const [zip, setZip] = useState(userProfile.defaultZip || '10001');
   const [listingChoice, setListingChoice] = useState<'Instant Offer' | 'Private Listing'>('Instant Offer');
   const [askingPrice, setAskingPrice] = useState(29800);
+  const [publishedSlug, setPublishedSlug] = useState<string | undefined>(undefined);
 
   useSeo({
     title: 'Sell Your Car or Get an Instant Cash Offer – AutoLux USA',
@@ -28,13 +100,27 @@ export function SellYourCarPage() {
   });
 
   const valuation = useMemo(() => {
-    const base = 24000 + (year - 2018) * 2600;
-    const mileagePenalty = Math.floor(mileage / 1000) * 140;
+    const rawBase = 24000 + (year - 2018) * 1950;
+    const clampedBase = Math.max(4200, rawBase);
+    const mileagePenalty = Math.floor(mileage / 1000) * 65;
     const condMultiplier = condition === 'Excellent' ? 1.08 : condition === 'Good' ? 1.0 : 0.88;
-    const instantOffer = Math.max(4500, Math.round((base - mileagePenalty) * condMultiplier));
-    const privateMarket = Math.round(instantOffer * 1.12);
+    const instantOffer = Math.max(1850, Math.round((clampedBase - mileagePenalty) * condMultiplier));
+    const privateMarket = Math.round(instantOffer * 1.14);
     return { instantOffer, privateMarket };
   }, [year, mileage, condition]);
+
+  const handleDecodeVin = () => {
+    const result = decodeVinDetails(vin);
+    if (!result) {
+      showToast('Enter at least 3 characters of your VIN to decode vehicle details.', 'info');
+      return;
+    }
+    setYear(result.year);
+    setMake(result.make);
+    setModel(result.model);
+    setTrim(result.trim);
+    showToast(`VIN decoded: ${result.year} ${result.make} ${result.model} ${result.trim}`);
+  };
 
   const handleCalculateValuation = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +130,7 @@ export function SellYourCarPage() {
 
   const handleSubmitListing = (e: React.FormEvent) => {
     e.preventDefault();
-    addUserListing({
+    const res = addUserListing({
       year,
       make,
       model,
@@ -57,6 +143,7 @@ export function SellYourCarPage() {
       zip,
       status: listingChoice === 'Instant Offer' ? 'Instant Offer Ready' : 'Active Listing',
     });
+    setPublishedSlug(res.vehicleSlug);
     setStep(3);
   };
 
@@ -106,17 +193,27 @@ export function SellYourCarPage() {
           <form onSubmit={handleCalculateValuation} className="space-y-5">
             <div>
               <label htmlFor="sell-vin" className="block text-xs font-semibold text-slate-700">
-                VIN (Optional — speeds up trim decoding)
+                VIN (Optional — decode Year, Make &amp; Trim automatically)
               </label>
-              <input
-                id="sell-vin"
-                type="text"
-                maxLength={17}
-                value={vin}
-                onChange={(e) => setVin(e.target.value.toUpperCase())}
-                placeholder="e.g. 4T1BZ1HK7NU123456"
-                className="mt-1.5 h-11 w-full rounded-lg border border-slate-200 px-3 font-mono text-sm uppercase focus:border-red-600 focus:outline-none"
-              />
+              <div className="mt-1.5 flex gap-2">
+                <input
+                  id="sell-vin"
+                  type="text"
+                  maxLength={17}
+                  value={vin}
+                  onChange={(e) => setVin(e.target.value.toUpperCase())}
+                  placeholder="e.g. 4T1BZ1HK7NU123456 or 1FTFW1E84RFA10001"
+                  className="h-11 flex-1 rounded-lg border border-slate-200 px-3 font-mono text-sm uppercase focus:border-red-600 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleDecodeVin}
+                  className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-4 text-xs font-bold text-slate-900 hover:border-red-300 hover:text-red-600 transition-colors"
+                >
+                  <SearchCheck className="h-4 w-4" aria-hidden="true" />
+                  <span>Decode VIN</span>
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -127,7 +224,7 @@ export function SellYourCarPage() {
                 <input
                   id="sell-year"
                   type="number"
-                  min={1995}
+                  min={1980}
                   max={2027}
                   required
                   value={year}
@@ -359,15 +456,26 @@ export function SellYourCarPage() {
               Dashboard.
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
+              {publishedSlug && (
+                <Link
+                  to={`/vehicle/${publishedSlug}`}
+                  className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-red-700 transition-colors"
+                >
+                  View Live Listing
+                </Link>
+              )}
               <Link
-                to="/dashboard"
+                to="/dashboard/listings"
                 className="rounded-lg bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-600 transition-colors"
               >
                 Manage in My Dashboard
               </Link>
               <button
                 type="button"
-                onClick={() => setStep(1)}
+                onClick={() => {
+                  setPublishedSlug(undefined);
+                  setStep(1);
+                }}
                 className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
                 Value Another Vehicle

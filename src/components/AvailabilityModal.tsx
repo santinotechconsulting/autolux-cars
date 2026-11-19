@@ -1,6 +1,6 @@
 import { MessageSquare, ShieldCheck, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMarketplace } from '../context/MarketplaceContext';
 import type { Vehicle } from '../types/marketplace';
 
@@ -20,6 +20,23 @@ export function AvailabilityModal({ vehicle, onClose }: AvailabilityModalProps) 
       : '',
   );
 
+  useEffect(() => {
+    if (vehicle) {
+      setMessage(
+        `Hi ${vehicle.dealerName}, is the ${vehicle.year} ${vehicle.make} ${vehicle.model} (Stock #${vehicle.stockNumber}) still available? Please share out-the-door pricing.`,
+      );
+    }
+  }, [vehicle]);
+
+  useEffect(() => {
+    if (!vehicle) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [vehicle, onClose]);
+
   if (!vehicle) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -30,12 +47,19 @@ export function AvailabilityModal({ vehicle, onClose }: AvailabilityModalProps) 
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Check vehicle availability"
+        onClick={onClose}
+      >
         <motion.div
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.96 }}
           transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+          onClick={(e) => e.stopPropagation()}
           className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-2xl"
         >
           <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">

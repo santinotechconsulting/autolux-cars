@@ -16,13 +16,18 @@ import {
   Truck,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { MarketPriceTrendChart } from '../components/MarketPriceTrendChart';
 import { VehicleCard } from '../components/VehicleCard';
 import { useMarketplace } from '../context/MarketplaceContext';
 import { getDealRating } from '../data/inventory';
 import { useSeo } from '../hooks/useSeo';
+
+const MarketPriceTrendChart = lazy(() =>
+  import('../components/MarketPriceTrendChart').then((m) => ({
+    default: m.MarketPriceTrendChart,
+  })),
+);
 
 export function VehicleDetailsPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -35,6 +40,8 @@ export function VehicleDetailsPage() {
     sendDealerInquiry,
     trackVehicleView,
     userProfile,
+    financingProfile,
+    showToast,
   } = useMarketplace();
 
   const vehicle = useMemo(
@@ -205,6 +212,32 @@ export function VehicleDetailsPage() {
   const prevPhoto = () =>
     setActivePhotoIndex((i) => (i - 1 + vehicle.gallery.length) % vehicle.gallery.length);
 
+  useEffect(() => {
+    if (!lightboxOpen && !historyOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setLightboxOpen(false);
+        setHistoryOpen(false);
+      } else if (lightboxOpen && vehicle.gallery.length > 1) {
+        if (e.key === 'ArrowRight') setActivePhotoIndex((i) => (i + 1) % vehicle.gallery.length);
+        if (e.key === 'ArrowLeft')
+          setActivePhotoIndex((i) => (i - 1 + vehicle.gallery.length) % vehicle.gallery.length);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [lightboxOpen, historyOpen, vehicle.gallery.length]);
+
+  const applyPreQualTerms = () => {
+    const clampedDown = Math.min(Math.round(vehicle.price * 0.5), financingProfile.downPayment);
+    setDownPayment(clampedDown);
+    setTermMonths(financingProfile.preferredTermMonths);
+    setApr(financingProfile.estimatedApr);
+    showToast(
+      `Applied your ${financingProfile.estimatedApr.toFixed(2)}% APR & ${financingProfile.preferredTermMonths}-mo Pre-Qual terms.`,
+    );
+  };
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       {/* Breadcrumb Trail */}
@@ -329,7 +362,13 @@ export function VehicleDetailsPage() {
               </div>
             </div>
 
-            <MarketPriceTrendChart vehicle={vehicle} />
+            <Suspense
+              fallback={
+                <div className="mt-6 h-72 animate-pulse rounded-xl border border-slate-200 bg-slate-50 p-4" />
+              }
+            >
+              <MarketPriceTrendChart vehicle={vehicle} />
+            </Suspense>
           </section>
 
           {/* Vehicle Overview & Key Specs */}
@@ -450,10 +489,26 @@ export function VehicleDetailsPage() {
 
           {/* Payment Calculator Widget */}
           <section className="rounded-xl border border-slate-200 bg-white p-6">
-            <h2 className="font-display text-xl font-bold text-slate-950">Monthly Payment Calculator</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Adjust your down payment, term length, and APR to estimate monthly financing.
-            </p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="font-display text-xl font-bold text-slate-950">Monthly Payment Calculator</h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  Adjust your down payment, term length, and APR to estimate monthly financing.
+                </p>
+              </div>
+              {financingProfile.preQualified && (
+                <button
+                  type="button"
+                  onClick={applyPreQualTerms}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 transition-colors tabular-nums"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>
+                    Apply Pre-Qual ({financingProfile.estimatedApr.toFixed(2)}% / {financingProfile.preferredTermMonths} mo)
+                  </span>
+                </button>
+              )}
+            </div>
 
             <div className="mt-5 grid grid-cols-1 gap-6 md:grid-cols-2">
               <div className="space-y-4">
@@ -849,7 +904,13 @@ export function VehicleDetailsPage() {
 
       {/* Photo Gallery Lightbox Modal */}
       {lightboxOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 p-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Vehicle photo gallery lightbox"
+          onClick={() => setLightboxOpen(false)}
+        >
           <button
             type="button"
             onClick={() => setLightboxOpen(false)}
@@ -859,7 +920,7 @@ export function VehicleDetailsPage() {
             <X className="h-6 w-6" />
           </button>
 
-          <div className="relative w-full max-w-4xl">
+          <div className="relative w-full max-w-4xl" onClick={(e) => e.stopPropagation()}>
             <img
               src={vehicle.gallery[activePhotoIndex] || vehicle.image}
               alt={`${vehicle.year} ${vehicle.make} ${vehicle.model} full view`}
@@ -893,8 +954,17 @@ export function VehicleDetailsPage() {
 
       {/* Free AutoLux Vehicle History Report Modal */}
       {historyOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
-          <div className="w-full max-w-2xl rounded-xl border border-slate-200 bg-white p-6 shadow-2xl">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="AutoLux Verified Vehicle History Report"
+          onClick={() => setHistoryOpen(false)}
+        >
+          <div
+            className="w-full max-w-2xl rounded-xl border border-slate-200 bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-start justify-between border-b border-slate-200 pb-4">
               <div className="flex items-center gap-2.5">
                 <ShieldCheck className="h-6 w-6 text-emerald-600" aria-hidden="true" />

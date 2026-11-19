@@ -267,14 +267,21 @@ async function startServer() {
   const PORT = 3000;
   const isProd = process.env.NODE_ENV === 'production';
 
-  app.use(compression());
+  app.use(compression({ threshold: 512 }));
   app.use(express.json());
 
-  app.use('/assets', express.static(path.join(__dirname, 'public/assets'), { maxAge: '7d' }));
+  app.use(
+    '/assets',
+    express.static(path.join(__dirname, 'public/assets'), {
+      maxAge: '30d',
+      immutable: true,
+    }),
+  );
 
   // SEO: robots.txt
   app.get('/robots.txt', (req, res) => {
     const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+    res.setHeader('Cache-Control', 'public, max-age=3600');
     res.type('text/plain').send(
       [
         'User-agent: *',
@@ -331,6 +338,7 @@ async function startServer() {
       ),
     ].join('');
 
+    res.setHeader('Cache-Control', 'public, max-age=3600');
     res
       .type('application/xml')
       .send(
@@ -360,10 +368,15 @@ async function startServer() {
     app.use(
       express.static(distPath, {
         index: false,
-        maxAge: '1d',
+        maxAge: '30d',
         setHeaders(res, filePath) {
           if (filePath.endsWith('.html')) {
             res.setHeader('Cache-Control', 'no-cache');
+          } else if (
+            filePath.includes(`${path.sep}assets${path.sep}`) ||
+            filePath.includes(`${path.sep}images${path.sep}`)
+          ) {
+            res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
           }
         },
       }),

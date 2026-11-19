@@ -15,6 +15,7 @@ export function SearchResultsPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [availabilityVehicle, setAvailabilityVehicle] = useState<Vehicle | null>(null);
+  const [visibleCount, setVisibleCount] = useState(12);
 
   const [filters, setFilters] = useState<SearchFilters>({
     query: searchParams.get('q') || '',
@@ -49,14 +50,33 @@ export function SearchResultsPage() {
       condition: searchParams.get('condition') || '',
       bodyStyle: searchParams.get('bodyStyle') || '',
       listingType: searchParams.get('listingType') || '',
+      minPrice: searchParams.get('minPrice') || '',
       maxPrice: searchParams.get('maxPrice') || '',
+      minYear: searchParams.get('minYear') || '',
+      maxYear: searchParams.get('maxYear') || '',
+      maxMileage: searchParams.get('maxMileage') || '',
+      fuelType: searchParams.get('fuelType') || '',
+      drivetrain: searchParams.get('drivetrain') || '',
+      transmission: searchParams.get('transmission') || '',
+      freeHistoryOnly: searchParams.get('freeHistoryOnly') === 'true',
       greatDealsOnly: searchParams.get('greatDealsOnly') === 'true',
       warrantyOnly: searchParams.get('warrantyOnly') === 'true',
       deliveryOnly: searchParams.get('deliveryOnly') === 'true',
+      sortBy: (searchParams.get('sortBy') as SearchFilters['sortBy']) || 'best',
       zip: searchParams.get('zip') || prev.zip,
       radius: searchParams.get('radius') || prev.radius,
     }));
+    setVisibleCount(12);
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!mobileFiltersOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileFiltersOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [mobileFiltersOpen]);
 
   const titlePrefix = filters.make
     ? `${filters.make} ${filters.model || ''} Cars for Sale`.trim()
@@ -70,6 +90,7 @@ export function SearchResultsPage() {
       next.model = '';
     }
     setFilters(next);
+    setVisibleCount(12);
 
     const params = new URLSearchParams();
     if (next.query) params.set('q', next.query);
@@ -78,17 +99,26 @@ export function SearchResultsPage() {
     if (next.condition) params.set('condition', next.condition);
     if (next.bodyStyle) params.set('bodyStyle', next.bodyStyle);
     if (next.listingType) params.set('listingType', next.listingType);
+    if (next.minPrice) params.set('minPrice', next.minPrice);
     if (next.maxPrice) params.set('maxPrice', next.maxPrice);
     if (next.minYear) params.set('minYear', next.minYear);
+    if (next.maxYear) params.set('maxYear', next.maxYear);
+    if (next.maxMileage) params.set('maxMileage', next.maxMileage);
+    if (next.fuelType) params.set('fuelType', next.fuelType);
+    if (next.drivetrain) params.set('drivetrain', next.drivetrain);
+    if (next.transmission) params.set('transmission', next.transmission);
+    if (next.freeHistoryOnly) params.set('freeHistoryOnly', 'true');
     if (next.greatDealsOnly) params.set('greatDealsOnly', 'true');
     if (next.warrantyOnly) params.set('warrantyOnly', 'true');
     if (next.deliveryOnly) params.set('deliveryOnly', 'true');
+    if (next.sortBy && next.sortBy !== 'best') params.set('sortBy', next.sortBy);
     if (next.zip) params.set('zip', next.zip);
     if (next.radius) params.set('radius', next.radius);
     setSearchParams(params, { replace: true });
   };
 
   const resetFilters = () => {
+    setVisibleCount(12);
     setFilters({
       query: '',
       make: '',
@@ -204,16 +234,27 @@ export function SearchResultsPage() {
   });
 
   const activeFilters: { label: string; clear: () => void }[] = [
+    ...(filters.query ? [{ label: `"${filters.query}"`, clear: () => updateFilter('query', '') }] : []),
     ...(filters.make ? [{ label: `Make: ${filters.make}`, clear: () => updateFilter('make', '') }] : []),
     ...(filters.model ? [{ label: `Model: ${filters.model}`, clear: () => updateFilter('model', '') }] : []),
     ...(filters.condition ? [{ label: filters.condition, clear: () => updateFilter('condition', '') }] : []),
     ...(filters.bodyStyle ? [{ label: `Style: ${filters.bodyStyle}`, clear: () => updateFilter('bodyStyle', '') }] : []),
     ...(filters.listingType ? [{ label: `Type: ${filters.listingType}`, clear: () => updateFilter('listingType', '') }] : []),
+    ...(filters.minPrice
+      ? [{ label: `Min $${Number(filters.minPrice).toLocaleString()}`, clear: () => updateFilter('minPrice', '') }]
+      : []),
     ...(filters.maxPrice
       ? [{ label: `Max $${Number(filters.maxPrice).toLocaleString()}`, clear: () => updateFilter('maxPrice', '') }]
       : []),
     ...(filters.minYear ? [{ label: `${filters.minYear}+`, clear: () => updateFilter('minYear', '') }] : []),
+    ...(filters.maxMileage
+      ? [{ label: `Max ${Number(filters.maxMileage).toLocaleString()} mi`, clear: () => updateFilter('maxMileage', '') }]
+      : []),
     ...(filters.fuelType ? [{ label: filters.fuelType, clear: () => updateFilter('fuelType', '') }] : []),
+    ...(filters.drivetrain ? [{ label: filters.drivetrain, clear: () => updateFilter('drivetrain', '') }] : []),
+    ...(filters.freeHistoryOnly
+      ? [{ label: 'Free History Report', clear: () => updateFilter('freeHistoryOnly', false) }]
+      : []),
     ...(filters.greatDealsOnly
       ? [{ label: 'Great Deals Only', clear: () => updateFilter('greatDealsOnly', false) }]
       : []),
@@ -696,28 +737,51 @@ export function SearchResultsPage() {
                 <span>Clear All Filters</span>
               </button>
             </div>
-          ) : viewMode === 'grid' ? (
-            <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-              {filteredVehicles.map((vehicle) => (
-                <VehicleCard
-                  key={vehicle.id}
-                  vehicle={vehicle}
-                  layout="grid"
-                  onCheckAvailability={(v) => setAvailabilityVehicle(v)}
-                />
-              ))}
-            </div>
           ) : (
-            <div className="mt-6 flex flex-col gap-4">
-              {filteredVehicles.map((vehicle) => (
-                <VehicleCard
-                  key={vehicle.id}
-                  vehicle={vehicle}
-                  layout="list"
-                  onCheckAvailability={(v) => setAvailabilityVehicle(v)}
-                />
-              ))}
-            </div>
+            <>
+              {viewMode === 'grid' ? (
+                <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+                  {filteredVehicles.slice(0, visibleCount).map((vehicle) => (
+                    <VehicleCard
+                      key={vehicle.id}
+                      vehicle={vehicle}
+                      layout="grid"
+                      onCheckAvailability={(v) => setAvailabilityVehicle(v)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6 flex flex-col gap-4">
+                  {filteredVehicles.slice(0, visibleCount).map((vehicle) => (
+                    <VehicleCard
+                      key={vehicle.id}
+                      vehicle={vehicle}
+                      layout="list"
+                      onCheckAvailability={(v) => setAvailabilityVehicle(v)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {filteredVehicles.length > visibleCount && (
+                <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleCount((prev) => prev + 12)}
+                    className="rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold text-slate-950 shadow-xs transition-colors hover:border-red-300 hover:text-red-600 tabular-nums"
+                  >
+                    Load More ({filteredVehicles.length - visibleCount} Remaining)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVisibleCount(filteredVehicles.length)}
+                    className="rounded-lg bg-slate-950 px-5 py-2.5 text-xs font-bold text-white transition-colors hover:bg-red-600 tabular-nums"
+                  >
+                    Show All {filteredVehicles.length} Vehicles
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

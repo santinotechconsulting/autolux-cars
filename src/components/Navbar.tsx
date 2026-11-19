@@ -2,6 +2,7 @@ import { Menu, User, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
+import { prefetchRoute } from '../App';
 import { useMarketplace } from '../context/MarketplaceContext';
 import { AUTOLUX_LOGO } from '../data/inventory';
 
@@ -30,6 +31,8 @@ export function Navbar() {
           <img
             src={AUTOLUX_LOGO}
             alt="AutoLux USA"
+            width={64}
+            height={36}
             className="h-9 w-16 rounded-md object-cover bg-slate-950"
             referrerPolicy="no-referrer"
           />
@@ -44,6 +47,8 @@ export function Navbar() {
             <NavLink
               key={item.to}
               to={item.to}
+              onMouseEnter={() => prefetchRoute(item.to)}
+              onFocus={() => prefetchRoute(item.to)}
               className={({ isActive }) =>
                 `relative py-1 text-sm font-medium whitespace-nowrap shrink-0 transition-colors duration-150 ${
                   isActive ? 'text-red-600 font-semibold' : 'text-slate-600 hover:text-slate-950'
@@ -70,6 +75,8 @@ export function Navbar() {
         <div className="flex items-center gap-3 shrink-0">
           <Link
             to="/dashboard"
+            onMouseEnter={() => prefetchRoute('/dashboard')}
+            onFocus={() => prefetchRoute('/dashboard')}
             className="hidden sm:inline-flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white whitespace-nowrap shrink-0 transition-colors duration-150 hover:bg-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
           >
             <User className="h-4 w-4" aria-hidden="true" />

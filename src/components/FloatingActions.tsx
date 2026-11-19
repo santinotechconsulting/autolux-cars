@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, MessageCircle, Send, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useMarketplace } from '../context/MarketplaceContext';
 
@@ -27,10 +27,27 @@ const TOPIC_PRESETS = [
 
 export function FloatingActions() {
   const { pathname } = useLocation();
-  const { compareIds } = useMarketplace();
+  const { compareIds, vehicles } = useMarketplace();
   const [scrolled, setScrolled] = useState(false);
   const [waOpen, setWaOpen] = useState(false);
+
+  const activeVehicle = useMemo(() => {
+    if (!pathname.startsWith('/vehicle/')) return null;
+    const slug = pathname.replace('/vehicle/', '').split('/')[0];
+    return vehicles.find((v) => v.slug === slug || v.id === slug) || null;
+  }, [pathname, vehicles]);
+
   const [waMessage, setWaMessage] = useState(TOPIC_PRESETS[0].message);
+
+  useEffect(() => {
+    if (activeVehicle) {
+      setWaMessage(
+        `Hi AutoLux USA, I would like availability & delivery pricing on the ${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model} ($${activeVehicle.price.toLocaleString()}, Stock #${activeVehicle.stockNumber}).`,
+      );
+    } else {
+      setWaMessage(TOPIC_PRESETS[0].message);
+    }
+  }, [activeVehicle]);
 
   useEffect(() => {
     const onScroll = () => {
@@ -40,6 +57,15 @@ export function FloatingActions() {
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  useEffect(() => {
+    if (!waOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setWaOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [waOpen]);
 
   const handleScrollAid = () => {
     if (scrolled) {

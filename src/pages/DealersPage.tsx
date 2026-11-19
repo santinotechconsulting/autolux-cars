@@ -11,8 +11,35 @@ export function DealersPage() {
   useSeo({
     title: 'Trusted Dealer Directory & Dealer Solutions – AutoLux USA',
     description:
-      'Find certified AutoLux USA dealerships near you or explore our $99/month dealer inventory, VIN scanner, and website platform.',
+      'Find certified AutoLux USA dealerships across NY, NJ, CT, Texas, and California or enroll in AutoLux Dealer Solutions.',
     path: '/dealers',
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'ItemList',
+      name: 'AutoLux USA Certified Dealership Network',
+      itemListElement: DEALERS.map((d, idx) => ({
+        '@type': 'ListItem',
+        position: idx + 1,
+        item: {
+          '@type': 'AutoDealer',
+          name: d.name,
+          telephone: d.phone,
+          address: {
+            '@type': 'PostalAddress',
+            streetAddress: d.address,
+            addressLocality: d.city,
+            addressRegion: d.state,
+            postalCode: d.zip,
+            addressCountry: 'US',
+          },
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: d.rating,
+            reviewCount: d.reviewCount,
+          },
+        },
+      })),
+    },
   });
 
   const filteredDealers = useMemo(() => {
@@ -47,6 +74,8 @@ export function DealersPage() {
             <option value="NY">New York (NY)</option>
             <option value="NJ">New Jersey (NJ)</option>
             <option value="CT">Connecticut (CT)</option>
+            <option value="TX">Texas (TX)</option>
+            <option value="CA">California (CA)</option>
           </select>
         </div>
       </div>

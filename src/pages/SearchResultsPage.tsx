@@ -35,6 +35,8 @@ export function SearchResultsPage() {
     radius: searchParams.get('radius') || userProfile.defaultRadius || '50',
     freeHistoryOnly: searchParams.get('freeHistoryOnly') === 'true',
     greatDealsOnly: searchParams.get('greatDealsOnly') === 'true',
+    warrantyOnly: searchParams.get('warrantyOnly') === 'true',
+    deliveryOnly: searchParams.get('deliveryOnly') === 'true',
     sortBy: (searchParams.get('sortBy') as SearchFilters['sortBy']) || 'best',
   });
 
@@ -49,6 +51,8 @@ export function SearchResultsPage() {
       listingType: searchParams.get('listingType') || '',
       maxPrice: searchParams.get('maxPrice') || '',
       greatDealsOnly: searchParams.get('greatDealsOnly') === 'true',
+      warrantyOnly: searchParams.get('warrantyOnly') === 'true',
+      deliveryOnly: searchParams.get('deliveryOnly') === 'true',
       zip: searchParams.get('zip') || prev.zip,
       radius: searchParams.get('radius') || prev.radius,
     }));
@@ -77,6 +81,8 @@ export function SearchResultsPage() {
     if (next.maxPrice) params.set('maxPrice', next.maxPrice);
     if (next.minYear) params.set('minYear', next.minYear);
     if (next.greatDealsOnly) params.set('greatDealsOnly', 'true');
+    if (next.warrantyOnly) params.set('warrantyOnly', 'true');
+    if (next.deliveryOnly) params.set('deliveryOnly', 'true');
     if (next.zip) params.set('zip', next.zip);
     if (next.radius) params.set('radius', next.radius);
     setSearchParams(params, { replace: true });
@@ -102,6 +108,8 @@ export function SearchResultsPage() {
       radius: userProfile.defaultRadius || '50',
       freeHistoryOnly: false,
       greatDealsOnly: false,
+      warrantyOnly: false,
+      deliveryOnly: false,
       sortBy: 'best',
     });
     setSearchParams({}, { replace: true });
@@ -139,6 +147,8 @@ export function SearchResultsPage() {
       if (filters.transmission && v.transmission !== filters.transmission) return false;
       if (filters.freeHistoryOnly && !v.freeHistoryReport) return false;
       if (filters.greatDealsOnly && getDealRating(v).rating !== 'Great Deal') return false;
+      if (filters.warrantyOnly && !v.warrantySummary && v.condition !== 'Certified Pre-Owned') return false;
+      if (filters.deliveryOnly && !v.deliveryAvailable) return false;
       if (filters.radius && filters.radius !== 'nationwide') {
         if (v.distanceMiles > Number(filters.radius)) return false;
       }
@@ -162,20 +172,34 @@ export function SearchResultsPage() {
   }, [vehicles, filters]);
 
   useSeo({
-    title: `${titlePrefix} – AutoLux USA Inventory`,
-    description: `Compare ${filteredVehicles.length}+ verified cars for sale and rental on AutoLux USA. Filter by make, price, mileage, fuel type, and free vehicle history reports.`,
+    title: `${titlePrefix}${filters.maxPrice ? ` Under $${Number(filters.maxPrice).toLocaleString()}` : ''} – AutoLux USA`,
+    description: `Compare ${filteredVehicles.length} verified cars for sale and rental on AutoLux USA. Filter by make, price, mileage, warranty, doorstep delivery, and free vehicle history reports.`,
     path: '/cars-for-sale',
     jsonLd: {
       '@context': 'https://schema.org',
-      '@type': 'ItemList',
+      '@type': 'CollectionPage',
       name: titlePrefix,
-      numberOfItems: filteredVehicles.length,
-      itemListElement: filteredVehicles.slice(0, 6).map((v, idx) => ({
-        '@type': 'ListItem',
-        position: idx + 1,
-        url: `/vehicle/${v.slug}`,
-        name: `${v.year} ${v.make} ${v.model} ${v.trim}`,
-      })),
+      mainEntity: {
+        '@type': 'ItemList',
+        numberOfItems: filteredVehicles.length,
+        itemListElement: filteredVehicles.slice(0, 10).map((v, idx) => ({
+          '@type': 'ListItem',
+          position: idx + 1,
+          item: {
+            '@type': 'Vehicle',
+            name: `${v.year} ${v.make} ${v.model} ${v.trim}`,
+            url: `/vehicle/${v.slug}`,
+            image: v.image,
+            vehicleModelDate: v.year,
+            offers: {
+              '@type': 'Offer',
+              price: v.price,
+              priceCurrency: 'USD',
+              availability: 'https://schema.org/InStock',
+            },
+          },
+        })),
+      },
     },
   });
 
@@ -192,6 +216,12 @@ export function SearchResultsPage() {
     ...(filters.fuelType ? [{ label: filters.fuelType, clear: () => updateFilter('fuelType', '') }] : []),
     ...(filters.greatDealsOnly
       ? [{ label: 'Great Deals Only', clear: () => updateFilter('greatDealsOnly', false) }]
+      : []),
+    ...(filters.warrantyOnly
+      ? [{ label: 'Warranty Included', clear: () => updateFilter('warrantyOnly', false) }]
+      : []),
+    ...(filters.deliveryOnly
+      ? [{ label: 'Home Delivery Ready', clear: () => updateFilter('deliveryOnly', false) }]
       : []),
   ];
 
@@ -374,6 +404,10 @@ export function SearchResultsPage() {
             <option value="2024">2024+</option>
             <option value="2023">2023+</option>
             <option value="2022">2022+</option>
+            <option value="2015">2015+</option>
+            <option value="2005">2005+</option>
+            <option value="1995">1995+</option>
+            <option value="1985">1985+</option>
           </select>
         </div>
         <div>
@@ -387,10 +421,11 @@ export function SearchResultsPage() {
             className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-sm tabular-nums focus:border-red-600 focus:outline-none"
           >
             <option value="">Any</option>
-            <option value="5000">5,000 mi</option>
             <option value="10000">10,000 mi</option>
-            <option value="20000">20,000 mi</option>
-            <option value="50000">50,000 mi</option>
+            <option value="25000">25,000 mi</option>
+            <option value="65000">65,000 mi</option>
+            <option value="100000">100,000 mi</option>
+            <option value="150000">150,000 mi</option>
           </select>
         </div>
       </div>
@@ -403,7 +438,7 @@ export function SearchResultsPage() {
           <input
             id="srp-min-price"
             type="number"
-            step={2500}
+            step={500}
             min={0}
             value={filters.minPrice}
             onChange={(e) => updateFilter('minPrice', e.target.value)}
@@ -418,7 +453,7 @@ export function SearchResultsPage() {
           <input
             id="srp-max-price"
             type="number"
-            step={2500}
+            step={500}
             min={0}
             value={filters.maxPrice}
             onChange={(e) => updateFilter('maxPrice', e.target.value)}
@@ -426,6 +461,23 @@ export function SearchResultsPage() {
             className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-sm tabular-nums focus:border-red-600 focus:outline-none"
           />
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        {['5000', '10000', '15000', '35000'].map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            onClick={() => updateFilter('maxPrice', filters.maxPrice === preset ? '' : preset)}
+            className={`rounded-md border px-2 py-1 text-[11px] font-semibold tabular-nums transition-colors ${
+              filters.maxPrice === preset
+                ? 'border-slate-950 bg-slate-950 text-white'
+                : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-red-300'
+            }`}
+          >
+            &lt;${Number(preset) / 1000}k
+          </button>
+        ))}
       </div>
 
       <div>
@@ -482,6 +534,26 @@ export function SearchResultsPage() {
             className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-600"
           />
           <span>Free History Report Only</span>
+        </label>
+
+        <label className="flex items-center gap-2.5 text-sm font-medium text-slate-800 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={filters.warrantyOnly}
+            onChange={(e) => updateFilter('warrantyOnly', e.target.checked)}
+            className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-600"
+          />
+          <span>Warranty Backed Only</span>
+        </label>
+
+        <label className="flex items-center gap-2.5 text-sm font-medium text-slate-800 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={filters.deliveryOnly}
+            onChange={(e) => updateFilter('deliveryOnly', e.target.checked)}
+            className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-600"
+          />
+          <span>Doorstep Delivery Eligible</span>
         </label>
       </div>
     </div>

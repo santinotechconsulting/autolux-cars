@@ -148,6 +148,7 @@ export function DashboardPage() {
     description:
       'Manage your saved vehicles, search alerts, recently viewed cars, dealer conversations, financing pre-qualification, and profile settings on AutoLux USA.',
     path: validSection === 'overview' ? '/dashboard' : `/dashboard/${validSection}`,
+    noindex: true,
   });
 
   const handleSelectSection = (id: DashboardSection) => {

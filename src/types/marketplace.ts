@@ -55,6 +55,12 @@ export interface Vehicle {
   titleStatus: 'Clean Title' | 'Certified Clean';
   listedDaysAgo: number;
   isFeatured: boolean;
+  downPaymentEstimate?: number;
+  monthlyPaymentEstimate?: number;
+  warrantySummary?: string;
+  inspectionLevel?: string;
+  deliveryAvailable?: boolean;
+  noHagglePrice?: boolean;
   features: string[];
   description: string;
   historyRecords: HistoryRecord[];
@@ -110,6 +116,8 @@ export interface SearchFilters {
   radius: string;
   freeHistoryOnly: boolean;
   greatDealsOnly: boolean;
+  warrantyOnly: boolean;
+  deliveryOnly: boolean;
   sortBy: 'best' | 'price_asc' | 'price_desc' | 'mileage_asc' | 'year_desc';
 }
 

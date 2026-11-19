@@ -5,10 +5,22 @@ interface SeoConfig {
   description: string;
   path?: string;
   image?: string;
+  imageAlt?: string;
+  ogType?: 'website' | 'article' | 'product';
+  noindex?: boolean;
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
 }
 
-export function useSeo({ title, description, path, image, jsonLd }: SeoConfig) {
+export function useSeo({
+  title,
+  description,
+  path,
+  image,
+  imageAlt,
+  ogType = 'website',
+  noindex = false,
+  jsonLd,
+}: SeoConfig) {
   useEffect(() => {
     document.title = title;
 
@@ -22,17 +34,32 @@ export function useSeo({ title, description, path, image, jsonLd }: SeoConfig) {
       el.setAttribute('content', content);
     };
 
-    const canonicalUrl = `${window.location.origin}${path ?? window.location.pathname}`;
-    const ogImage = image || '/assets/aistudio/Autolux_46ec3fca.png';
+    const origin = window.location.origin;
+    const canonicalUrl = `${origin}${path ?? window.location.pathname}`;
+    const rawImage = image || '/assets/aistudio/Autolux_46ec3fca.png';
+    const absoluteImage = rawImage.startsWith('http') ? rawImage : `${origin}${rawImage}`;
+    const resolvedAlt = imageAlt || `${title} — AutoLux USA`;
 
+    setMeta(
+      'meta[name="robots"]',
+      'name',
+      'robots',
+      noindex
+        ? 'noindex, nofollow'
+        : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
+    );
     setMeta('meta[name="description"]', 'name', 'description', description);
+    setMeta('meta[property="og:type"]', 'property', 'og:type', ogType);
     setMeta('meta[property="og:title"]', 'property', 'og:title', title);
     setMeta('meta[property="og:description"]', 'property', 'og:description', description);
     setMeta('meta[property="og:url"]', 'property', 'og:url', canonicalUrl);
-    setMeta('meta[property="og:image"]', 'property', 'og:image', ogImage);
+    setMeta('meta[property="og:image"]', 'property', 'og:image', absoluteImage);
+    setMeta('meta[property="og:image:alt"]', 'property', 'og:image:alt', resolvedAlt);
+    setMeta('meta[name="twitter:url"]', 'name', 'twitter:url', canonicalUrl);
     setMeta('meta[name="twitter:title"]', 'name', 'twitter:title', title);
     setMeta('meta[name="twitter:description"]', 'name', 'twitter:description', description);
-    setMeta('meta[name="twitter:image"]', 'name', 'twitter:image', ogImage);
+    setMeta('meta[name="twitter:image"]', 'name', 'twitter:image', absoluteImage);
+    setMeta('meta[name="twitter:image:alt"]', 'name', 'twitter:image:alt', resolvedAlt);
 
     let canonicalLink = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
     if (!canonicalLink) {
@@ -55,5 +82,5 @@ export function useSeo({ title, description, path, image, jsonLd }: SeoConfig) {
       script.textContent = JSON.stringify(jsonLd);
       document.head.appendChild(script);
     }
-  }, [title, description, path, image, jsonLd]);
+  }, [title, description, path, image, imageAlt, ogType, noindex, jsonLd]);
 }

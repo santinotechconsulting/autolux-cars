@@ -24,15 +24,41 @@ export function ResearchPage() {
     }
   }, [searchParams]);
 
-  useSeo({
-    title: 'Car Reviews, Buying Guides & Side-by-Side Comparison – AutoLux USA',
-    description:
-      'Read expert automotive reviews, ownership cost guides, and compare specs side-by-side on AutoLux USA.',
-    path: '/research',
-  });
-
   const activeArticle =
     RESEARCH_ARTICLES.find((a) => a.slug === selectedSlug) || RESEARCH_ARTICLES[0];
+
+  useSeo({
+    title: `${activeArticle.title} – AutoLux USA Research`,
+    description: activeArticle.excerpt,
+    path: '/research',
+    image: activeArticle.image,
+    ogType: 'article',
+    jsonLd: [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'Article',
+        headline: activeArticle.title,
+        description: activeArticle.excerpt,
+        image: activeArticle.image,
+        author: {
+          '@type': 'Person',
+          name: activeArticle.author,
+        },
+        publisher: {
+          '@type': 'Organization',
+          name: 'AutoLux USA',
+        },
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Home', item: '/' },
+          { '@type': 'ListItem', position: 2, name: 'Research & Reviews', item: '/research' },
+        ],
+      },
+    ],
+  });
 
   const comparedVehicles =
     compareIds.length > 0

@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Star,
   Tag,
+  Truck,
   X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -45,16 +46,27 @@ export function VehicleDetailsPage() {
     trackVehicleView(vehicle.id);
     setActivePhotoIndex(0);
     setOfferAmount(Math.round(vehicle.price * 0.96));
-    setDownPayment(Math.round(vehicle.price * 0.1));
+    setDownPayment(vehicle.downPaymentEstimate ?? Math.round(vehicle.price * 0.1));
+    setRequestDeliveryQuote(false);
     setBuyerMessage(
       `Hi, I am interested in this ${vehicle.year} ${vehicle.make} ${vehicle.model} (Stock #${vehicle.stockNumber}). Please confirm availability and out-the-door pricing.`,
     );
-  }, [vehicle.id, vehicle.make, vehicle.model, vehicle.price, vehicle.stockNumber, vehicle.year, trackVehicleView]);
+  }, [
+    vehicle.id,
+    vehicle.make,
+    vehicle.model,
+    vehicle.price,
+    vehicle.downPaymentEstimate,
+    vehicle.stockNumber,
+    vehicle.year,
+    trackVehicleView,
+  ]);
 
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [requestType, setRequestType] = useState<'Inquiry' | 'Test Drive' | 'Offer' | 'Rental'>('Inquiry');
+  const [requestType, setRequestType] = useState<'Inquiry' | 'Test Drive' | 'Offer' | 'Rental' | 'Quote'>('Inquiry');
+  const [requestDeliveryQuote, setRequestDeliveryQuote] = useState(false);
   const [buyerName, setBuyerName] = useState(`${userProfile.firstName} ${userProfile.lastName}`);
   const [buyerEmail, setBuyerEmail] = useState(userProfile.email);
   const [buyerPhone, setBuyerPhone] = useState(userProfile.phone);
@@ -66,7 +78,9 @@ export function VehicleDetailsPage() {
   );
 
   // Payment estimator state
-  const [downPayment, setDownPayment] = useState(Math.round(vehicle.price * 0.1));
+  const [downPayment, setDownPayment] = useState(
+    vehicle.downPaymentEstimate ?? Math.round(vehicle.price * 0.1),
+  );
   const [termMonths, setTermMonths] = useState<36 | 48 | 60 | 72>(60);
   const [apr, setApr] = useState(5.75);
 
@@ -101,9 +115,11 @@ export function VehicleDetailsPage() {
 
   useSeo({
     title: `${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.trim} – AutoLux USA`,
-    description: `${vehicle.condition} ${vehicle.year} ${vehicle.make} ${vehicle.model} for $${vehicle.price.toLocaleString()} with ${vehicle.mileage.toLocaleString()} miles in ${vehicle.dealerCity}, ${vehicle.dealerState}. Free AutoLux history report included.`,
+    description: `${vehicle.condition} ${vehicle.year} ${vehicle.make} ${vehicle.model} for $${vehicle.price.toLocaleString()} (${vehicle.mileage.toLocaleString()} mi) in ${vehicle.dealerCity}, ${vehicle.dealerState}. ${vehicle.warrantySummary || 'Warranty & free history report included.'}`,
     path: `/vehicle/${vehicle.slug}`,
     image: vehicle.image,
+    imageAlt: `${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.trim} in ${vehicle.exteriorColor}`,
+    ogType: 'product',
     jsonLd: [
       {
         '@context': 'https://schema.org',
@@ -113,6 +129,10 @@ export function VehicleDetailsPage() {
         model: vehicle.model,
         vehicleModelDate: vehicle.year,
         vehicleIdentificationNumber: vehicle.vin,
+        itemCondition:
+          vehicle.condition === 'New'
+            ? 'https://schema.org/NewCondition'
+            : 'https://schema.org/UsedCondition',
         mileageFromOdometer: {
           '@type': 'QuantitativeValue',
           value: vehicle.mileage,
@@ -122,14 +142,27 @@ export function VehicleDetailsPage() {
         vehicleTransmission: vehicle.transmission,
         driveWheelConfiguration: vehicle.drivetrain,
         color: vehicle.exteriorColor,
+        image: vehicle.image,
+        description: vehicle.description,
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: vehicle.dealerRating,
+          reviewCount: vehicle.dealerReviewCount,
+        },
         offers: {
           '@type': 'Offer',
           price: vehicle.price,
           priceCurrency: 'USD',
+          priceValidUntil: '2026-12-31',
           availability: 'https://schema.org/InStock',
+          itemCondition:
+            vehicle.condition === 'New'
+              ? 'https://schema.org/NewCondition'
+              : 'https://schema.org/UsedCondition',
           seller: {
             '@type': 'AutoDealer',
             name: vehicle.dealerName,
+            telephone: vehicle.dealerPhone,
           },
         },
       },
@@ -148,13 +181,24 @@ export function VehicleDetailsPage() {
   const handleInquirySubmit = (e: React.FormEvent) => {
     e.preventDefault();
     let finalMsg = buyerMessage;
+    let leadType: 'Inquiry' | 'Test Drive' | 'Offer' | 'Rental' = 'Inquiry';
     if (requestType === 'Offer') {
+      leadType = 'Offer';
       finalMsg = `Offer Submitted: $${offerAmount.toLocaleString()} for ${vehicle.year} ${vehicle.make} ${vehicle.model} (Stock #${vehicle.stockNumber}). ${buyerMessage}`;
     } else if (requestType === 'Rental' && vehicle.rentalDailyRate) {
+      leadType = 'Rental';
       const total = vehicle.rentalDailyRate * rentalDays;
       finalMsg = `Executive Rental Request: ${rentalDays} days starting ${rentalStartDate} (Est. $${total.toLocaleString()} total at $${vehicle.rentalDailyRate}/day). ${buyerMessage}`;
+    } else if (requestType === 'Quote') {
+      leadType = 'Inquiry';
+      finalMsg = `Official Quote Request (Out-the-Door + Financing): ${vehicle.year} ${vehicle.make} ${vehicle.model} (Full Price $${vehicle.price.toLocaleString()}). ${buyerMessage}`;
+    } else if (requestType === 'Test Drive') {
+      leadType = 'Test Drive';
     }
-    sendDealerInquiry(vehicle, finalMsg, requestType);
+    if (requestDeliveryQuote) {
+      finalMsg += ' [Includes Nationwide Doorstep Delivery Quote Request]';
+    }
+    sendDealerInquiry(vehicle, finalMsg, leadType);
   };
 
   const nextPhoto = () => setActivePhotoIndex((i) => (i + 1) % vehicle.gallery.length);
@@ -370,6 +414,38 @@ export function VehicleDetailsPage() {
                 ))}
               </ul>
             </div>
+
+            <div className="mt-6 grid grid-cols-1 gap-3 border-t border-slate-100 pt-5 sm:grid-cols-3">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3.5">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-950">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+                  <span>Inspection Regime</span>
+                </div>
+                <p className="mt-1 text-xs text-slate-600">
+                  {vehicle.inspectionLevel || 'Expert Visual & 165-Point Health Check Passed'}
+                </p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3.5">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-950">
+                  <CheckCircle2 className="h-4 w-4 text-red-600" aria-hidden="true" />
+                  <span>Warranty Protection</span>
+                </div>
+                <p className="mt-1 text-xs text-slate-600">
+                  {vehicle.warrantySummary || '90-Day / 3,000-Mile Limited Powertrain Coverage'}
+                </p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3.5">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-950">
+                  <Truck className="h-4 w-4 text-slate-900" aria-hidden="true" />
+                  <span>Doorstep Delivery</span>
+                </div>
+                <p className="mt-1 text-xs text-slate-600">
+                  {vehicle.deliveryAvailable !== false
+                    ? 'Insured nationwide carrier delivery & 24/7 concierge pickup available.'
+                    : 'Showroom pickup with verified title transfer.'}
+                </p>
+              </div>
+            </div>
           </section>
 
           {/* Payment Calculator Widget */}
@@ -391,7 +467,7 @@ export function VehicleDetailsPage() {
                     type="range"
                     min={0}
                     max={Math.round(vehicle.price * 0.5)}
-                    step={500}
+                    step={100}
                     value={downPayment}
                     onChange={(e) => setDownPayment(Number(e.target.value))}
                     className="mt-2 w-full accent-red-600"
@@ -496,6 +572,25 @@ export function VehicleDetailsPage() {
                 )}
               </div>
 
+              <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs tabular-nums">
+                <div>
+                  <div className="text-slate-500">Est. Down Payment</div>
+                  <div className="font-display font-bold text-slate-950">
+                    ${(vehicle.downPaymentEstimate ?? Math.round(vehicle.price * 0.1)).toLocaleString()}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-500">Flexible Monthly</div>
+                  <div className="font-display font-bold text-emerald-700">
+                    From ${(vehicle.monthlyPaymentEstimate ?? monthlyPayment).toLocaleString()}/mo
+                  </div>
+                </div>
+                <div className="col-span-2 flex items-center justify-between border-t border-slate-200 pt-2 text-[11px] font-semibold text-slate-700">
+                  <span>Financing Available</span>
+                  <span>{vehicle.noHagglePrice ? 'No-Haggle Direct Price' : 'Market Negotiable'}</span>
+                </div>
+              </div>
+
               <div className="mt-4 flex gap-2">
                 <button
                   type="button"
@@ -524,7 +619,7 @@ export function VehicleDetailsPage() {
                 </button>
               </div>
 
-              {/* Dealer Contact / Offer / Rental Form */}
+              {/* Dealer Contact / Quote / Offer / Rental Form */}
               <form onSubmit={handleInquirySubmit} className="mt-6 space-y-3 border-t border-slate-100 pt-5">
                 <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
                   <button
@@ -535,6 +630,15 @@ export function VehicleDetailsPage() {
                     }`}
                   >
                     Message
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRequestType('Quote')}
+                    className={`rounded-md py-1.5 text-xs font-semibold transition-colors ${
+                      requestType === 'Quote' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600'
+                    }`}
+                  >
+                    Request Quote
                   </button>
                   <button
                     type="button"
@@ -558,11 +662,11 @@ export function VehicleDetailsPage() {
                     <button
                       type="button"
                       onClick={() => setRequestType('Rental')}
-                      className={`rounded-md py-1.5 text-xs font-semibold transition-colors ${
+                      className={`col-span-2 rounded-md py-1.5 text-xs font-semibold transition-colors ${
                         requestType === 'Rental' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600'
                       }`}
                     >
-                      Book Rental
+                      Book Executive Rental (${vehicle.rentalDailyRate}/day)
                     </button>
                   )}
                 </div>
@@ -575,8 +679,8 @@ export function VehicleDetailsPage() {
                     <input
                       id="vdp-offer"
                       type="number"
-                      min={1000}
-                      step={250}
+                      min={500}
+                      step={100}
                       value={offerAmount}
                       onChange={(e) => setOfferAmount(Number(e.target.value))}
                       className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono text-sm font-bold tabular-nums focus:border-red-600 focus:outline-none"
@@ -645,6 +749,17 @@ export function VehicleDetailsPage() {
                   onChange={(e) => setBuyerMessage(e.target.value)}
                   className="w-full rounded-lg border border-slate-200 p-3 text-sm focus:border-red-600 focus:outline-none"
                 />
+                {vehicle.deliveryAvailable !== false && (
+                  <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={requestDeliveryQuote}
+                      onChange={(e) => setRequestDeliveryQuote(e.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-600"
+                    />
+                    <span>Include Nationwide Doorstep Delivery Quote</span>
+                  </label>
+                )}
                 <button
                   type="submit"
                   className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-bold text-white transition-colors hover:bg-red-700"
@@ -661,9 +776,11 @@ export function VehicleDetailsPage() {
                       ? 'Request Test Drive'
                       : requestType === 'Offer'
                         ? 'Submit Cash Offer'
-                        : requestType === 'Rental'
-                          ? 'Reserve Executive Rental'
-                          : 'Send Availability Inquiry'}
+                        : requestType === 'Quote'
+                          ? 'Request Instant Quote'
+                          : requestType === 'Rental'
+                            ? 'Reserve Executive Rental'
+                            : 'Send Availability Inquiry'}
                   </span>
                 </button>
               </form>
